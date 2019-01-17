@@ -2,15 +2,18 @@
 #include <fstream>
 #include <string>
 #include <vector>
-#include <map>
-#include <utility>
+#include <stack>
 using namespace std ;
 
 struct node {
     node(){ visited = false; }
-    int visit(int h,int now = opentime){
-        if( !visited && now>=opentime && now<=closetime )
-            { visited = false; return h + happy; }
+    int try_visit(int h,int now = -1){
+        if( !visited && ( ( now>=opentime && now<=closetime ) || now==-1 ) ) return h + happy;
+        else return h;
+    }
+    int visit(int h,int now = -1){
+        if( !visited && ( ( now>=opentime && now<=closetime ) || now==-1 ) )
+            { visited = true; return h + happy; }
         else return h;
     }
     string name;
@@ -19,76 +22,76 @@ struct node {
     int closetime;
     bool visited;
 };
-struct path_info{
-    int happy;
-    int costtime;
-    pair<int,set<int>> to;
-};
-typedef pair<int,set<int>> Situation;
-typedef map<situation,path_info> Table;
 
 vector <int> path ;
 vector <int> begint ;
 vector <int> endt ;
 
 void print(int **A,int n){
-    for(int i=0;i<n;i++) { for(int j=0;j<n;j++) cout<<A[i][j]<<" "; cout<<endl; }
+    for(int i=0;i<n;i++) { for(int j=0;j<n;j++) cout<<A[i][j]<<" "; cout<<endl; } cout<<endl;
 }
-
-#define g(sol) func(table,sol,dist,pi,place,n,time)
-path_info func(Table &table,Situation sit,int **dist,int **pi,node *place,int n,int time){
-    Table::iterator it = table.find(sit)
-    if(it!=table.end()) return it->second;
-
-    set<int> S;
-
-    S = sit->second;
-}
-
-int dp(int **dist,int **pi,node *place,int n,int time,int start_time){
-    int start_point = 0;
-    int happy = node[start_point].visit(0);
-    int cur = start_point, in = start_time, out = start_time;
-    int i,j,k,all[n];
-
-    for(i=0;i<n;i++) all[i] = i;
-    set<int> S(all); S.erase(start_point);
-    Situation sit(start_point,S);
-    Table table;
-/*
-    for(i=0;i<n;i++) com[i] = i; --com[n-1];
-    while(com[0]<(m-n)){
-        for(i=n-1;i>=0;i--) if(com[i]<m+i-n){
-            com[i]++; for(j=i+1;j<n;++j) com[j]=com[i]+j-i; break;
-        }
-        for(i=0;i<n;i++) cout<<com[i]+1<<'\t'; cout<<endl;
-    }
-    */
-    g(sit);
-
+void print(int *A,int n){
+    for(int i=0;i<n;i++) cout<<A[i]<<" "; cout<<endl<<endl;
 }
 
 int pb1(int **dist,int **pi,node *place,int n,int time,int start_time){
-    if(n<20) return dp(dist,pi,place,n,time,start_time);
-
-    int start_point = 0;
-    int happy = node[start_point].visit(0);
+    int i,j,k = place[0].happy,start_point = 0;
+    for(i=1;i<n;i++) if( k<place[i].happy ) { k = place[i].happy; start_point = i; }
+    int happy = place[start_point].visit(0);
     int cur = start_point, in = start_time, out = start_time;
-    int i,j,k,to[n];
+    int maximum,next,to[n];
+    stack<int> stk;
 
-
-
+    path.push_back(cur) ; begint.push_back(in) ; endt.push_back(out) ;
+    while(1) {
+        for(i=0;i<path.size();i++) cout<<path[i]<<" "; cout<<endl<<endl;
+        for(i=0;i<path.size();i++) cout<<begint[i]<<" "; cout<<endl<<endl;
+        for(i=0;i<path.size();i++) cout<<endt[i]<<" "; cout<<endl<<endl;
+        for(i=0;i<n;i++) {
+            to[i]=0;
+            if( i!=cur && dist[cur][i]!=-1 && dist[cur][i]+dist[i][start_point]<=time) {
+                j = i;
+                to[i] = place[j].try_visit(to[i]);
+                while(pi[cur][j]!=cur){
+                    j = pi[cur][j];
+                    to[i] = place[j].try_visit(to[i]);
+                }
+            }
+        }
+        print(to,n);
+        maximum = to[0]; next = 0;
+        for(i=1;i<n;i++) if( maximum<to[i] ) { maximum = to[i]; next = i; }
+        if(maximum==0) {
+            if(cur==start_point) break;
+            else next = start_point;
+        }
+        time -= dist[cur][next];
+        happy = place[next].visit(happy);
+        while(pi[cur][next]!=cur){
+            stk.push(next);
+            next = pi[cur][next];
+            happy = place[next].visit(happy);
+        }
+        in = out = out + dist[cur][next];
+        path.push_back(next) ; begint.push_back(in) ; endt.push_back(out) ;
+        cur = next;
+        while(!stk.empty()) {
+            next = stk.top();
+            in = out = out + dist[cur][next];
+            path.push_back(next) ; begint.push_back(in) ; endt.push_back(out) ;
+            cur = next;
+            stk.pop();
+        }
+    }
     return happy;
 }
 
-int main(int argc,char* argv[]) {
-    if (argc != 2) return 1 ;
-
-    string str(argv[1]) ;
+int main(void) {
+    string str("test") ;
     fstream fin,fout1,fout2;
-    fin.open("./"+str+"/tp.data",ios::in) ;
-    fout1.open("./"+str+"/ans1.txt",ios::out) ;
-    fout2.open("./"+str+"/ans2.txt",ios::out) ;
+    fin.open("./"+str+"/tp.data",ios::in);
+    fout1.open("./"+str+"/ans1.txt",ios::out);
+    fout2.open("./"+str+"/ans2.txt",ios::out);
 
     int n,m,time,start_time;
 
@@ -121,6 +124,12 @@ int main(int argc,char* argv[]) {
 
     fin.close();
 
+    if(start_time>1440) {
+        fout1<<0<<" "<<0<<endl;
+        fout2<<0<<" "<<0<<endl;
+        fout1.close(); fout2.close();
+    }
+
     for(i=0;i<n;i++) dist[i][i] = 0;
     for(k=0;k<n;k++) for(i=0;i<n;i++) for(j=0;j<n;j++)
         if( dist[i][k]!=-1 && dist[k][j]!=-1 && ( dist[i][j]>dist[i][k]+dist[k][j] || dist[i][j]==-1 ) ) {
@@ -128,13 +137,13 @@ int main(int argc,char* argv[]) {
             pi[i][j] = pi[k][j];
         }
 
-    /*
+    int total = pb1(dist,pi,place,n,time,start_time);
     fout1<<total<<endl;
     for(i=0;i<path.size();i++)
-        fout1<<node[path[i]].name<<" "<<begint[i]<<" "<<endt[i]<<endl;
+        fout1<<place[path[i]].name<<" "<<begint[i]<<" "<<endt[i]<<endl;
     fout1.close();
-    */
 
+    fout2.close();
     delete [] tmp_d;
     delete [] tmp_p;
     delete [] dist;
