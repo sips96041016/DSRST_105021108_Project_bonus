@@ -4,6 +4,7 @@
 #include <vector>
 #include <stack>
 using namespace std ;
+typedef vector<int> int_arr;
 
 struct node {
     node(){ visited = false; }
@@ -11,21 +12,13 @@ struct node {
         if( !visited && ( ( now>=opentime && now<=closetime ) || now==-1 ) ) return h + happy;
         else return h;
     }
-    int visit(int h,int now = -1){
-        if( !visited && ( ( now>=opentime && now<=closetime ) || now==-1 ) )
-            { visited = true; return h + happy; }
-        else return h;
-    }
+    void visit(){visited = true;}
     string name;
     int happy;
     int opentime;
     int closetime;
     bool visited;
 };
-
-vector <int> path ;
-vector <int> begint ;
-vector <int> endt ;
 
 void print(int **A,int n){
     for(int i=0;i<n;i++) { for(int j=0;j<n;j++) cout<<A[i][j]<<" "; cout<<endl; } cout<<endl;
@@ -34,44 +27,63 @@ void print(int *A,int n){
     for(int i=0;i<n;i++) cout<<A[i]<<" "; cout<<endl<<endl;
 }
 
-int pb1(int **dist,int **pi,node *place,int n,int time,int start_time){
-    int i,j,k = place[0].happy,start_point = 0;
-    for(i=1;i<n;i++) if( k<place[i].happy ) { k = place[i].happy; start_point = i; }
-    int happy = place[start_point].visit(0);
-    int cur = start_point, in = start_time, out = start_time;
+void pb(int **dist,int **pi,node *place,int n,int time,int start_time,
+        int_arr &path,int_arr &begint,int_arr &endt,int &happy,int &costtime,bool strict){
+    int i,j,start_point = 0;
+    int cur,in,out,lefttime;
+    happy = -1;
+    for(i=0;i<n;i++) {
+        int wow = strict ? place[i].try_visit(0,start_time) : place[i].try_visit(0);
+        if( happy<wow ) { happy = wow; start_point = i; }
+    }
+    out = start_time;
+    if(happy==0){
+        for(i=0;i<n;i++) if( out<place[i].opentime )
+            { out = place[i].opentime; start_point = i; }
+    }
+    cur = start_point; in = start_time; lefttime = time - (out - in);
+    place[cur].visit();
+    path.push_back(cur) ; begint.push_back(in) ; endt.push_back(out) ;
+
     int maximum,next,to[n];
     stack<int> stk;
 
-    path.push_back(cur) ; begint.push_back(in) ; endt.push_back(out) ;
     while(1) {
-        for(i=0;i<path.size();i++) cout<<path[i]<<" "; cout<<endl<<endl;
-        for(i=0;i<path.size();i++) cout<<begint[i]<<" "; cout<<endl<<endl;
+        for(i=0;i<path.size();i++) cout<<path[i]<<" "; cout<<endl;
+        for(i=0;i<path.size();i++) cout<<begint[i]<<" "; cout<<endl;
         for(i=0;i<path.size();i++) cout<<endt[i]<<" "; cout<<endl<<endl;
+        //find total happy
         for(i=0;i<n;i++) {
             to[i]=0;
-            if( i!=cur && dist[cur][i]!=-1 && dist[cur][i]+dist[i][start_point]<=time) {
+            if( i!=cur && dist[cur][i]!=-1 && dist[cur][i]+dist[i][start_point]<=lefttime) {
                 j = i;
-                to[i] = place[j].try_visit(to[i]);
+                to[i] = strict ? place[j].try_visit(to[i],out+dist[cur][j]) :
+                                 place[j].try_visit(to[i]);
                 while(pi[cur][j]!=cur){
                     j = pi[cur][j];
-                    to[i] = place[j].try_visit(to[i]);
+                    to[i] = strict ? place[j].try_visit(to[i],out+dist[cur][j]) :
+                                     place[j].try_visit(to[i]);
                 }
             }
         }
         print(to,n);
+        //find best
         maximum = to[0]; next = 0;
         for(i=1;i<n;i++) if( maximum<to[i] ) { maximum = to[i]; next = i; }
         if(maximum==0) {
             if(cur==start_point) break;
             else next = start_point;
         }
-        time -= dist[cur][next];
-        happy = place[next].visit(happy);
+        lefttime -= dist[cur][next];
+        //find path
+        happy += to[next];
+        place[next].visit();
         while(pi[cur][next]!=cur){
             stk.push(next);
             next = pi[cur][next];
-            happy = place[next].visit(happy);
+            place[next].visit();
         }
+        //doing output
         in = out = out + dist[cur][next];
         path.push_back(next) ; begint.push_back(in) ; endt.push_back(out) ;
         cur = next;
@@ -83,11 +95,12 @@ int pb1(int **dist,int **pi,node *place,int n,int time,int start_time){
             stk.pop();
         }
     }
-    return happy;
+    costtime = time - lefttime;
+    return ;
 }
 
-int main(void) {
-    string str("test") ;
+int main(int argc,char* argv[]) {
+    string str(argv[1]) ;
     fstream fin,fout1,fout2;
     fin.open("./"+str+"/tp.data",ios::in);
     fout1.open("./"+str+"/ans1.txt",ios::out);
@@ -137,13 +150,22 @@ int main(void) {
             pi[i][j] = pi[k][j];
         }
 
-    int total = pb1(dist,pi,place,n,time,start_time);
-    fout1<<total<<endl;
-    for(i=0;i<path.size();i++)
-        fout1<<place[path[i]].name<<" "<<begint[i]<<" "<<endt[i]<<endl;
+    int happy1,happy2,costtime1,costtime2;
+    int_arr path1,begint1,endt1,path2,begint2,endt2;
+
+    pb(dist,pi,place,n,time,start_time,path1,begint1,endt1,happy1,costtime1,false);
+    fout1<<happy1<<" "<<costtime1<<endl;
+    for(i=0;i<path1.size();i++)
+        fout1<<place[path1[i]].name<<" "<<begint1[i]<<" "<<endt1[i]<<endl;
     fout1.close();
 
+    for(i=0;i<n;i++) place[i].visited = false;
+    pb(dist,pi,place,n,time,start_time,path2,begint2,endt2,happy2,costtime2,true);
+    fout2<<happy2<<" "<<costtime2<<endl;
+    for(i=0;i<path2.size();i++)
+        fout1<<place[path2[i]].name<<" "<<begint2[i]<<" "<<endt2[i]<<endl;
     fout2.close();
+
     delete [] tmp_d;
     delete [] tmp_p;
     delete [] dist;
